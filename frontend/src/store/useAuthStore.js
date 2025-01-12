@@ -2,8 +2,10 @@ import { create } from "zustand";
 import { axiosInstance } from "../lib/axios.js";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
+import { useChatStore } from "./useChatStore.js";
 
-const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
+const BASE_URL =
+  import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
@@ -85,6 +87,7 @@ export const useAuthStore = create((set, get) => ({
   connectSocket: () => {
     const { authUser } = get();
     if (!authUser || get().socket?.connected) return;
+    const users = useChatStore.getState().users;
 
     const socket = io(BASE_URL, {
       query: {
@@ -97,6 +100,25 @@ export const useAuthStore = create((set, get) => ({
 
     socket.on("getOnlineUsers", (userIds) => {
       set({ onlineUsers: userIds });
+    });
+
+    socket.on("notification", (notification) => {
+      toast(
+        `New message from ${notification.senderName}: ${
+          notification.text || "Image"
+        }`
+      );
+
+      if (Notification.permission === "granted") {
+        if (document.hidden) {
+          new Notification("New Message", {
+            body: `${notification.senderName}: ${notification.text || "Image"}`,
+            icon: "/path/to/icon.png",
+          });
+        } else {
+          // Optionally, you can handle in-app notifications here
+        }
+      }
     });
   },
   disconnectSocket: () => {
